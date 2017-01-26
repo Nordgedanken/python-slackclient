@@ -78,24 +78,13 @@ class SlackClient(object):
             See here for more information on responses: https://api.slack.com/web
         '''
         result = json.loads(self.server.api_call(method, timeout=timeout, **kwargs))
-        if self.server:
+        if self.server and result.get("ok", None):
             if method == 'im.open':
-                if "ok" in result and result["ok"]:
-                    self.server.attach_channel(kwargs["user"], result["channel"]["id"])
+                self.server.attach_channel(kwargs["user"], result["channel"]["id"])
             elif method in ('mpim.open', 'groups.create', 'groups.createchild'):
-                if "ok" in result and result["ok"]:
-                    self.server.attach_channel(
-                        result['group']['name'],
-                        result['group']['id'],
-                        result['group']['members']
-                    )
+                self.server.attach_channel(result['group']['name'], result['group']['id'], result['group']['members'])
             elif method in ('channels.create', 'channels.join'):
-                if 'ok' in result and result['ok']:
-                    self.server.attach_channel(
-                        result['channel']['name'],
-                        result['channel']['id'],
-                        result['channel']['members']
-                    )
+                self.server.attach_channel(result['channel']['name'], result['channel']['id'], result['channel']['members'])
         return result
 
     def rtm_read(self):
@@ -121,10 +110,7 @@ class SlackClient(object):
         # creation
         if self.server:
             json_data = self.server.websocket_safe_read()
-            data = []
-            if json_data != '':
-                for d in json_data.split('\n'):
-                    data.append(json.loads(d))
+            data = [json.loads(d) for d in json_data.splitlines()]
             for item in data:
                 self.process_changes(item)
             return data
